@@ -1,3 +1,4 @@
+from fuzzywuzzy import fuzz
 from flask import Flask, request, jsonify
 from nltk.corpus import stopwords
 import nltk
@@ -11,7 +12,7 @@ nltk.download('punkt')
 
 technical_terms = [
     # Programming Languages
-    "Python", "Java", "C++", "JavaScript", "Ruby", "C#", "Swift", "Go (Golang)", "Go", "Kotlin", "PHP", "R", "MATLAB", "Lua", "Groovy", "Dart", "Objective-C", "Julia", "Cobol", "Assembly Language", "VHDL", "Verilog", "Fortran", "Ada", "Lisp", "Prolog",
+    "Python", "C (Programming Language)", "Java", "C++", "JavaScript", "Ruby", "C#", "Swift", "Go (Golang)", "Golang", "Go", "Kotlin", "PHP", "R", "MATLAB", "Lua", "Groovy", "Dart", "Objective-C", "Julia", "Cobol", "Assembly Language", "VHDL", "Verilog", "Fortran", "Ada", "Lisp", "Prolog",
 
     # Web Development Frameworks
     "React", "Angular", "Vue.js", "Django", "Ruby on Rails", "Laravel", "Flask", "Spring Framework", "Express.js", "ASP.NET", "Node.js", "Meteor", "Ember.js", "Backbone.js",
@@ -47,7 +48,7 @@ technical_terms = [
     "Hadoop", "Spark", "Kafka", "Flink", "Hive", "Pig", "HBase", "Impala", "Solr", "Elasticsearch", "Tableau", "Power BI", "D3.js",
 
     # DevOps and Cloud Technologies
-    "Docker", "Kubernetes (K8s)", "Jenkins", "Ansible", "Terraform", "Puppet", "Chef", "Vagrant", "AWS (Amazon Web Services)", "Azure (Microsoft Azure)", "Google Cloud Platform (GCP)", "OpenStack", "Docker Swarm", "Rancher", "OpenShift", "CircleCI", "Travis CI", "Heroku", "DigitalOcean", "Linode",
+    "Docker", "Kubernetes", "Jenkins", "Ansible", "Terraform", "Puppet", "Chef", "Vagrant", "AWS (Amazon Web Services)", "Azure (Microsoft Azure)", "Google Cloud Platform (GCP)", "OpenStack", "Docker Swarm", "Rancher", "OpenShift", "CircleCI", "Travis CI", "Heroku", "DigitalOcean", "Linode",
 
     # Version Control
     "Git", "Subversion (SVN)", "Mercurial",
@@ -71,19 +72,36 @@ technical_terms = [
     "TCP/IP", "DNS (Domain Name System)", "DHCP (Dynamic Host Configuration Protocol)", "Load Balancing", "VPN (Virtual Private Network)", "Subnetting", "IPv4 and IPv6",
 
     # Cloud Computing Services
-    "Amazon Web Services (AWS) Services", "Google Cloud Platform (GCP) Services", "Microsoft Azure Services", "Heroku", "DigitalOcean", "Alibaba Cloud", "Oracle Cloud", "IBM Cloud",
+    "Amazon Web Services (AWS) Services", "AWS", "Google Cloud Platform (GCP) Services", "GCP", "Microsoft Azure Services", "Heroku", "DigitalOcean", "Alibaba Cloud", "Oracle Cloud", "IBM Cloud",
 ]
 
 # Convert technical terms to lowercase
 technical_terms = [term.lower() for term in technical_terms]
 
 
+def calculate_similarity(word1, word2):
+    return fuzz.ratio(word1, word2)
+
+
+def calculate_average_similarity(parent_list, child_list):
+    total_similarity = 0
+    for child_word in child_list:
+        similarity_scores = [calculate_similarity(
+            child_word, parent_word) for parent_word in parent_list]
+        max_similarity = max(similarity_scores)
+        total_similarity += max_similarity
+
+    average_similarity = total_similarity / len(child_list)
+    return average_similarity
+
+
 @app.route('/api/v1/extractor/analyse', methods=['POST'])
 def extract_technical_terms():
     # Get the input text from the POST request
     data = request.json
+    print(request)
     input_text = data.get('text', '')
-
+    userSkills = data.get('userSkills', '')
     # Tokenize the input text
     words = word_tokenize(input_text)
 
@@ -93,9 +111,14 @@ def extract_technical_terms():
 
     # Filter out duplicates
     filtered_words = list(set(filtered_words))
+    result_similarity = calculate_average_similarity(
+        filtered_words, userSkills)
 
+    print(f"Average similarity between words: {result_similarity}%")
     # Return the extracted technical terms as a JSON response
-    return jsonify({"technical_terms": filtered_words})
+    return jsonify(technical_terms=filtered_words,
+                   score=str(result_similarity)
+                   )
 
 
 if __name__ == '__main__':
